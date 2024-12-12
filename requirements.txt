@@ -1,12 +1,26 @@
-#자신이 만든 레포지토리(저장소)에 requirements.txt 만들고 다음 내용 복붙해서 집어넣기
-#내 Streamlit 페이지가 필요한 프로그래밍 라이브러리(도구)를 사전에 설치하고 활용할 수 있도록 하기 위함
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import joblib
 
-streamlit
-pandas
-numpy
-plotly
-fastai2
-fastbook
-Pillow
-gdown
-opencv-python-headless
+# 데이터 로드
+data = pd.read_csv('./data/respiratory_data.csv')
+
+# 전처리
+data['성별'] = data['성별'].map({'여성': 0, '남성': 1})
+data['증상_코드'] = data['증상'].map({'기침': 1, '가슴 답답함': 2, '천명음': 3, '호흡 곤란': 4})
+data['상태_코드'] = data['상태의 심각성'].map({'낮음': 1, '중간': 2, '심각': 3})
+
+# 입력(X)과 출력(y) 정의
+X = data[['나이', '성별', '증상_코드', '상태_코드']]
+y = data['질환']
+
+# 데이터 분리
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 모델 학습
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# 모델 저장
+joblib.dump(model, './models/trained_model.pkl')
