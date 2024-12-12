@@ -1,41 +1,33 @@
 import streamlit as st
-import pandas as pd
-import joblib
+import numpy as np
+import pickle
 
-# 모델 및 데이터 로드
-model = joblib.load('./models/trained_model.pkl')
-data = pd.read_csv('./data/respiratory_data.csv')
-
-# 심각도 맵핑
-severity_map = {'낮음': 1, '중간': 2, '심각': 3}
+# 페이지 제목
+st.title("질병 예측 서비스")
 
 # 사용자 입력
-st.title('질병 예측 및 치료 추천 서비스')
+symptoms = st.text_input("증상을 입력하세요 (예: coughing, wheezing):")
+age = st.number_input("나이", min_value=0, max_value=120, step=1, value=30)
+sex = st.selectbox("성별", options=["Male", "Female"])
+nature = st.selectbox("증상의 심각도", options=["low", "medium", "high"])
 
-st.sidebar.header('증상을 선택하고 심각도를 입력하세요.')
-age = st.sidebar.slider('나이', 0, 100, 25)
-gender = st.sidebar.selectbox('성별', ['여성', '남성'])
-symptoms = st.sidebar.multiselect('증상을 선택하세요', ['기침', '가슴 답답함', '천명음', '호흡 곤란'])
-severity = st.sidebar.selectbox('증상의 심각도를 선택하세요', ['낮음', '중간', '심각'])
+# 모델 로드
+try:
+    with open("model.pkl", "rb") as f:
+        model = pickle.load(f)
+    with open("vectorizer.pkl", "rb") as f:
+        vectorizer = pickle.load(f)
 
-# 데이터 준비
-symptom_code = {'기침': 1, '가슴 답답함': 2, '천명음': 3, '호흡 곤란': 4}
-gender_code = 0 if gender == '여성' else 1
-severity_code = severity_map[severity]
+    if st.button("예측하기"):
+        # 입력 데이터 처리
+        symptoms_vectorized = vectorizer.transform([symptoms])
+        sex_encoded = 0 if sex == "Male" else 1
+        nature_encoded = ["low", "medium", "high"].index(nature)
 
-input_data = pd.DataFrame([{
-    '나이': age,
-    '성별': gender_code,
-    '증상_코드': symptom_code[symptoms[0]] if symptoms else 0,
-    '상태_코드': severity_code
-}])
+        # 예측 데이터 구성
+        input_data = np.hstack([symptoms_vectorized.toarray(), [sex_encoded], [nature_encoded]])
+        prediction = model.predict(input_data)
 
-# 예측
-if st.button('질병 예측'):
-    prediction = model.predict_proba(input_data)[0]
-    predicted_disease = model.classes_[prediction.argmax()]
-    st.write(f'예상 질병: {predicted_disease} (확률: {max(prediction)*100:.2f}%)')
-
-    # 치료 방법 추천
-    treatment = data[data['질환'] == predicted_disease]['치료 방법'].values[0]
-    st.write(f'추천 치료 방법: {treatment}')
+        st.success(f"예측된 질병: {prediction[0]}")
+except FileNotFoundError:
+    st.error("모델 파일이 없습니다. 먼저 모델을 학습시키고 저장하세요.")
